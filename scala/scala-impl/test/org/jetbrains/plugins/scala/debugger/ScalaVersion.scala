@@ -62,11 +62,6 @@ trait ScalaSdkOwner {
     myLoaders.clear()
   }
 
-  /**
-    * @see [[org.jetbrains.plugins.scala.DependencyManager]]
-    */
-  protected def loadIvyDependencies(): Unit = ()
-
 }
 
 // Java compatibility

@@ -96,7 +96,6 @@ public abstract class ScalaLightPlatformCodeInsightTestCaseAdapter extends Light
 
     protected void afterSetUpProject() {
         setUpLibraries();
-        loadIvyDependencies();
     }
 
 
@@ -111,7 +110,7 @@ public abstract class ScalaLightPlatformCodeInsightTestCaseAdapter extends Light
         return false;
     }
 
-    protected Seq<ThirdPartyLibraryLoader> additionalLibraries() {
+    protected Seq<LibraryLoader> additionalLibraries() {
         return Vector$.MODULE$.empty();
     }
 

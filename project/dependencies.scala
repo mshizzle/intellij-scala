@@ -159,15 +159,10 @@ object DependencyGroups {
       .map(v => "org.scala-sbt" % "sbt-launch" % v)
 
   val testDownloader = Seq(
-    "com.typesafe.akka" % "akka-actor_2.11" % "2.4.19",
-    "com.typesafe.akka" % "akka-stream_2.11" % "2.4.19",
     "com.typesafe.play" % "play_2.10" % "2.4.10",
     "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.6",
     "org.scala-lang.modules" % "scala-xml_2.12" % "1.0.6",
-    "org.scala-js" % "scalajs-library_2.10" % "0.6.14",
-    "org.scalameta" % s"paradise_$scalaVersion" % paradiseVersion exclude("org.scalameta", s"scalameta_$scalaBinaryVersion"),
-    "org.scalameta" % "scalameta_2.11" % scalaMetaVersion,
-    "org.scalameta" % "scalameta_2.12" % scalaMetaVersion
+    "org.scala-js" % "scalajs-library_2.10" % "0.6.14"
   )
 
   val testScalaLibraryDownloader = Seq(

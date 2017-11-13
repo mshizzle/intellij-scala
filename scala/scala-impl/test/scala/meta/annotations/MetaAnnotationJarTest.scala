@@ -32,7 +32,6 @@ class MetaAnnotationJarTest extends JavaCodeInsightFixtureTestCase with ScalaMet
   override def setUp(): Unit = {
     super.setUp()
     setUpLibraries()
-    dependencyManager.loadAll
     PsiTestUtil.addLibrary(myModule, getTestDataPath + testJarPath)
   }
 

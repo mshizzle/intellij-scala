@@ -1,7 +1,8 @@
 package org.jetbrains.plugins.scala.failed.resolve
 
 import org.jetbrains.plugins.scala.DependencyManager._
-import org.jetbrains.plugins.scala.{DependencyManager, PerfCycleTests}
+import org.jetbrains.plugins.scala.PerfCycleTests
+import org.jetbrains.plugins.scala.base.libraryLoaders.{IvyManagedLoader, LibraryLoader}
 import org.junit.experimental.categories.Category
 
 /**
@@ -11,8 +12,9 @@ import org.junit.experimental.categories.Category
 @Category(Array(classOf[PerfCycleTests]))
 class ScalazTest extends FailedResolveTest("scalaz") {
 
-  override protected def loadIvyDependencies(): Unit =
-    DependencyManager("org.scalaz" % "scalaz-core_2.11" % "7.1.0").loadAll
+  override protected def additionalLibraries(): Seq[LibraryLoader] = Seq(
+    IvyManagedLoader("org.scalaz" % "scalaz-core_2.11" % "7.1.0")
+  )
 
   def testSCL7213(): Unit = doTest()
 

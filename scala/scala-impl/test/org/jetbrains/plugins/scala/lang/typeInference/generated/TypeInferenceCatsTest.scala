@@ -1,9 +1,9 @@
 package org.jetbrains.plugins.scala.lang.typeInference.generated
 
-import com.intellij.openapi.module.Module
 import org.jetbrains.plugins.scala.DependencyManager._
+import org.jetbrains.plugins.scala.SlowTests
+import org.jetbrains.plugins.scala.base.libraryLoaders.{IvyManagedLoader, LibraryLoader}
 import org.jetbrains.plugins.scala.lang.typeInference.TypeInferenceTestBase
-import org.jetbrains.plugins.scala.{DependencyManager, SlowTests}
 import org.junit.experimental.categories.Category
 
 /**
@@ -12,11 +12,10 @@ import org.junit.experimental.categories.Category
 @Category(Array(classOf[SlowTests]))
 class TypeInferenceCatsTest extends TypeInferenceTestBase {
 
-  implicit def myModule: Module = super.module()
   override protected def folderPath: String = super.folderPath + "cats/"
-  override protected def loadIvyDependencies(): Unit = DependencyManager(
-    "org.typelevel" % "cats-core_2.11" % "0.4.0"
-  ).loadAll
+  override protected def additionalLibraries(): Seq[LibraryLoader] = Seq(
+    IvyManagedLoader("org.typelevel" % "cats-core_2.11" % "0.4.0")
+  )
 
   def testSCL10006(): Unit = doTest()
 

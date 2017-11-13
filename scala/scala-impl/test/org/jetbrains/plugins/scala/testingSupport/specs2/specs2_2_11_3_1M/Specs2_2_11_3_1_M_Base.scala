@@ -1,7 +1,7 @@
 package org.jetbrains.plugins.scala.testingSupport.specs2.specs2_2_11_3_1M
 
-import org.jetbrains.plugins.scala.DependencyManager
 import org.jetbrains.plugins.scala.DependencyManager._
+import org.jetbrains.plugins.scala.base.libraryLoaders.{IvyManagedLoader, LibraryLoader}
 import org.jetbrains.plugins.scala.testingSupport.specs2.Specs2TestCase
 
 /**
@@ -12,17 +12,19 @@ trait Specs2_2_11_3_1_M_Base extends Specs2TestCase {
   private val specsVersion: String = "3.0.1"
   private val scalazVersion = "7.1.0"
 
-  override protected def loadIvyDependencies(): Unit = DependencyManager(
-    "org.specs2" %% "specs2-core" % specsVersion,
-    "org.specs2" %% "specs2-common" % specsVersion,
-    "org.specs2" %% "specs2-matcher" % specsVersion,
-    "org.scalaz" %% "scalaz-core" % scalazVersion,
-    "org.scalaz" %% "scalaz-concurrent" % scalazVersion,
-    "org.scalaz" %% "scalaz-effect" % scalazVersion,
-    "org.scalaz.stream" %% "scalaz-stream" % "0.6a",
-    "org.scodec" %% "scodec-bits" % "1.1.0",
-    "org.scodec" %% "scodec-core" % "1.7.0",
-    "org.scala-lang.modules" %% "scala-xml" % "1.0.6"
-  ).loadAll
+  override protected def additionalLibraries: Seq[LibraryLoader] = Seq(
+    IvyManagedLoader(
+      "org.specs2" %% "specs2-core" % specsVersion,
+      "org.specs2" %% "specs2-common" % specsVersion,
+      "org.specs2" %% "specs2-matcher" % specsVersion,
+      "org.scalaz" %% "scalaz-core" % scalazVersion,
+      "org.scalaz" %% "scalaz-concurrent" % scalazVersion,
+      "org.scalaz" %% "scalaz-effect" % scalazVersion,
+      "org.scalaz.stream" %% "scalaz-stream" % "0.6a",
+      "org.scodec" %% "scodec-bits" % "1.1.0",
+      "org.scodec" %% "scodec-core" % "1.7.0",
+      "org.scala-lang.modules" %% "scala-xml" % "1.0.6"
+    )
+  )
 
 }

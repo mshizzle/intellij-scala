@@ -3,6 +3,7 @@ package org.jetbrains.plugins.scala.lang.macros
 import com.intellij.openapi.module.Module
 import com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.plugins.scala.base.ScalaLightPlatformCodeInsightTestCaseAdapter
+import org.jetbrains.plugins.scala.base.libraryLoaders.{IvyManagedLoader, LibraryLoader, ThirdPartyLibraryLoader}
 import org.jetbrains.plugins.scala.debugger.{ScalaVersion, Scala_2_12}
 import org.jetbrains.plugins.scala.lang.psi.ScalaPsiElement
 import org.jetbrains.plugins.scala.lang.psi.api.statements.ScFunctionDefinition
@@ -22,11 +23,13 @@ class MonocleLensesTest extends ScalaLightPlatformCodeInsightTestCaseAdapter {
 
   private val (monocleOrg, monocleVer) = ("com.github.julien-truffaut", "1.4.0")
 
-  override protected def loadIvyDependencies(): Unit = DependencyManager(
-    monocleOrg %% "monocle-core"    % monocleVer,
-    monocleOrg %% "monocle-macro"   % monocleVer,
-    monocleOrg %% "monocle-generic" % monocleVer
-  ).loadAll
+  override protected def additionalLibraries(): Seq[LibraryLoader] = Seq(
+    IvyManagedLoader(
+      monocleOrg %% "monocle-core"    % monocleVer,
+      monocleOrg %% "monocle-macro"   % monocleVer,
+      monocleOrg %% "monocle-generic" % monocleVer
+    )
+  )
 
   protected def folderPath: String = TestUtils.getTestDataPath
 

@@ -1,7 +1,7 @@
 package org.jetbrains.plugins.scala.testingSupport.specs2.specs2_2_12_4_0_0
 
-import org.jetbrains.plugins.scala.DependencyManager
 import org.jetbrains.plugins.scala.DependencyManager._
+import org.jetbrains.plugins.scala.base.libraryLoaders.{IvyManagedLoader, LibraryLoader}
 import org.jetbrains.plugins.scala.debugger.{ScalaVersion, Scala_2_12}
 import org.jetbrains.plugins.scala.testingSupport.specs2.Specs2TestCase
 
@@ -15,10 +15,12 @@ trait Specs2_2_12_4_0_0_Base extends Specs2TestCase {
 
   private val specsVersion: String = "4.0.0"
 
-  override protected def loadIvyDependencies(): Unit = DependencyManager(
-    "org.specs2" %% "specs2-core" % specsVersion,
-    "org.specs2" %% "specs2-common" % specsVersion,
-    "org.specs2" %% "specs2-matcher" % specsVersion,
-    "org.specs2" %% "specs2-fp" % specsVersion,
-  ).loadAll
+  override protected def additionalLibraries: Seq[LibraryLoader] = Seq(
+    IvyManagedLoader(
+      "org.specs2" %% "specs2-core" % specsVersion,
+      "org.specs2" %% "specs2-common" % specsVersion,
+      "org.specs2" %% "specs2-matcher" % specsVersion,
+      "org.specs2" %% "specs2-fp" % specsVersion,
+    )
+  )
 }

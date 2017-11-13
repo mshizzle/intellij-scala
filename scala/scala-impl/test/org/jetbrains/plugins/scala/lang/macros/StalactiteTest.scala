@@ -3,6 +3,7 @@ package org.jetbrains.plugins.scala.lang.macros
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.plugins.scala.base.ScalaLightCodeInsightFixtureTestAdapter
+import org.jetbrains.plugins.scala.base.libraryLoaders.{IvyManagedLoader, LibraryLoader}
 import org.jetbrains.plugins.scala.debugger.{ScalaVersion, Scala_2_11}
 import org.jetbrains.plugins.scala.lang.psi.api.statements.ScFunctionDefinition
 import org.jetbrains.plugins.scala.lang.psi.api.toplevel.typedef._
@@ -25,10 +26,11 @@ class StalactiteTest extends ScalaLightCodeInsightFixtureTestAdapter {
 
   override implicit val version: ScalaVersion = Scala_2_11
 
-  override protected def loadIvyDependencies(): Unit = DependencyManager(
-    "com.fommil" %% "stalactite" % "0.0.3",
-    "com.github.mpilquist" %% "simulacrum" % "0.10.0"
-  ).loadAll
+  override def librariesLoaders: Seq[LibraryLoader] = super.librariesLoaders :+
+    IvyManagedLoader(
+      "com.fommil" %% "stalactite" % "0.0.3",
+      "com.github.mpilquist" %% "simulacrum" % "0.10.0"
+    )
 
   protected def folderPath: String = TestUtils.getTestDataPath
 

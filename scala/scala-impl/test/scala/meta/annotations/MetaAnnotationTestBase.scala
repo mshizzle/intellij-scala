@@ -42,7 +42,6 @@ abstract class MetaAnnotationTestBase extends JavaCodeInsightFixtureTestCase wit
   override def setUp(): Unit = {
     super.setUp()
     setUpLibraries()
-    dependencyManager.loadAll
     PsiTestUtil.addSourceRoot(module, myFixture.getTempDirFixture.findOrCreateDir("test"), true)
     compiler = new CompilerTester(project, Collections.singletonList(module))
   }
@@ -76,7 +75,7 @@ abstract class MetaAnnotationTestBase extends JavaCodeInsightFixtureTestCase wit
   }
 
   protected def enableParadisePlugin(): Unit = {
-    val pluginArtifact = dependencyManager.resolve("org.scalameta" % s"paradise_${version.minor}" % PARADISE_VERSION)
+    val pluginArtifact = new DependencyManager().resolve("org.scalameta" % s"paradise_${version.minor}" % PARADISE_VERSION)
     val profile = ScalaCompilerConfiguration.instanceIn(project).defaultProfile
     val settings = profile.getSettings
     assert(pluginArtifact.nonEmpty, "Paradise plugin not found, aborting compilation")

@@ -25,7 +25,7 @@ abstract class WorksheetProcessorTestBase extends ScalaCompilerTestBase {
 
   import WorksheetProcessorTestBase._
 
-  override protected def additionalLibraries: Seq[ThirdPartyLibraryLoader] =
+  override protected def additionalLibraries: Seq[LibraryLoader] =
     Seq(WorksheetProcessorTestBase.MacroPrinterLoader(this.getClass.getClassLoader))
 
   protected def doTest(text: String): Unit = {
