@@ -4,6 +4,7 @@ import java.io.File
 import java.nio.file.{Files, Paths}
 
 import com.intellij.openapi.module.Module
+import com.intellij.openapi.vfs.{JarFileSystem, VirtualFile}
 import com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess
 import com.intellij.testFramework.PsiTestUtil
 import org.apache.ivy.Ivy
@@ -13,26 +14,14 @@ import org.apache.ivy.plugins.resolver.{ChainResolver, URLResolver}
 import org.jetbrains.plugins.scala.DependencyManager.Dependency
 import org.jetbrains.plugins.scala.debugger.ScalaVersion
 
-/**
-  * SBT-like dependency manager for libraries to be used in tests.
-  *
-  * To use, override [[org.jetbrains.plugins.scala.debugger.ScalaSdkOwner#loadIvyDependencies()]],<br/>
-  * create a new manager and call<br/> [[org.jetbrains.plugins.scala.DependencyManager#loadAll]] or [[org.jetbrains.plugins.scala.DependencyManager#load]]<br/>
-  * {{{
-  * override protected def loadIvyDependencies(): Unit =
-  *     DependencyManager("com.chuusai" %% "shapeless" % "2.3.2").loadAll
-  * }}}
-  *
-  * One can also do this outside loadIvyDependencies, but make sure that all loading is done before [[com.intellij.testFramework.LightPlatformTestCase#setUp()]]
-  * is finished to avoid getting "Virtual pointer hasn't been disposed: " errors on tearDown()
-  */
 class DependencyManager(val deps: Dependency*) {
   import DependencyManager._
 
   private val homePrefix = sys.props.get("tc.idea.prefix").orElse(sys.props.get("user.home")).map(new File(_)).get
   private val ivyHome = sys.props.get("sbt.ivy.home").map(new File(_)).orElse(Option(new File(homePrefix, ".ivy2"))).get
+  protected val artifactBlackList = Set("scala-library", "scala-reflect", "scala-compiler")
 
-  private var resolvers = Seq(
+  protected var resolvers = Seq(
     Resolver("central", "http://repo1.maven.org/maven2/[organisation]/[module]/[revision]/[artifact](-[revision]).jar"),
     Resolver("scalaz-releases", "http://dl.bintray.com/scalaz/releases/[organisation]/[module]/[revision]/[artifact](-[revision]).jar")
   )
@@ -94,7 +83,7 @@ class DependencyManager(val deps: Dependency*) {
 
 
   private def resolveFast(dep: Dependency): Option[ResolvedDependency] = {
-    val suffix = if (dep.classifier.nonEmpty) s"-${dep.classifier}" else ""
+    val suffix = if (dep.classifierBare.nonEmpty) s"-${dep.classifierBare}" else ""
     val file = new File(ivyHome, s"cache/${dep.org}/${dep.artId}/${dep.kind}s/${dep.artId}-${dep.version}$suffix.jar")
     if (file.exists())
       Some(ResolvedDependency(dep, file))
@@ -135,8 +124,6 @@ class DependencyManager(val deps: Dependency*) {
 
 object DependencyManager {
 
-  val artifactBlackList = Set("scala-library", "scala-reflect", "scala-compiler")
-
   private def stripScalaVersion(str: String): String = str.replaceAll("_\\d+\\.\\d+$", "")
 
   def apply(deps: Dependency*): DependencyManager = new DependencyManager(deps:_*)
@@ -158,10 +145,13 @@ object DependencyManager {
     def ^(conf: String): Dependency = copy(conf = conf)
     def %(kind: Types.Type): Dependency = copy(_kind = kind)
     def transitive(): Dependency = copy(_transitive = true)
-    def classifier: String = if (_kind == Types.SRC) "e:classifier=\"sources\"" else ""
+    def classifier: String = if (classifierBare.nonEmpty) s"""e:classifier="$classifierBare"""" else ""
+    def classifierBare: String = if (_kind == Types.SRC) "sources" else ""
   }
 
-  case class ResolvedDependency(info: Dependency, file: File)
+  case class ResolvedDependency(info: Dependency, file: File) {
+    def toJarVFile: VirtualFile = JarFileSystem.getInstance().refreshAndFindFileByPath(s"${file.getCanonicalPath}!/")
+  }
 
   implicit class RichStr(value: String) {
     def %(right: String) = Dependency(value, right, "UNKNOWN")

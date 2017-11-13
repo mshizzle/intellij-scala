@@ -26,7 +26,7 @@ abstract class RehighlightingPerformanceTypingTestBase extends DownloadingAndImp
   override def getFixture: CodeInsightTestFixture = myCodeInsightTestFixture
 
   override def librariesLoaders: Seq[LibraryLoader] = Seq(
-    ScalaLibraryLoader(),
+    ScalaSDKLoader(),
     JdkLoader(),
     SourcesLoader(getTestDataPath + "/")
   )

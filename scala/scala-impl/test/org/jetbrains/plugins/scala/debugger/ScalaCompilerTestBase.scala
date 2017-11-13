@@ -12,6 +12,7 @@ import com.intellij.openapi.compiler.{CompileContext, CompileStatusNotification,
 import com.intellij.openapi.module.Module
 import com.intellij.openapi.projectRoots._
 import com.intellij.openapi.roots._
+import com.intellij.openapi.util.registry.Registry
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs._
 import com.intellij.testFramework.{EdtTestUtil, ModuleTestCase, PsiTestUtil, VfsTestUtil}
@@ -83,14 +84,14 @@ abstract class ScalaCompilerTestBase extends ModuleTestCase with ScalaSdkOwner {
   override implicit protected def module: Module = getModule
 
   override protected def librariesLoaders: Seq[LibraryLoader] = Seq(
-    ScalaLibraryLoader(isIncludeReflectLibrary = true),
-    JdkLoader(getTestProjectJdk),
+    ScalaSDKLoader(isIncludeReflectLibrary = true),
+    JdkLoader(),
     SourcesLoader(getSourceRootDir.getCanonicalPath)
   ) ++ additionalLibraries
 
   protected def additionalLibraries: Seq[LibraryLoader] = Seq.empty
 
-  override protected def getTestProjectJdk: Sdk = DebuggerTestUtil.findJdk8()
+  override protected def getTestProjectJdk: Sdk = JdkLoader.getOrCreateJDK(parentDisposable = project)
 
   protected def forceFSRescan(): Unit = BuildManager.getInstance.clearState(myProject)
 

@@ -39,11 +39,6 @@ case object Scala_2_12 extends ScalaVersion {
   override final val minor: String = "2.12.3"
 }
 
-case object Scala_2_12_0 extends ScalaVersion {
-  override final val major: String = "2.12"
-  override final val minor: String = "2.12.0"
-}
-
 trait ScalaSdkOwner {
   implicit val version: ScalaVersion
 

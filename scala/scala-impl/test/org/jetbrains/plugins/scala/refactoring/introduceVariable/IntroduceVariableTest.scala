@@ -2,7 +2,7 @@ package org.jetbrains.plugins.scala.refactoring.introduceVariable
 
 import com.intellij.openapi.module.{Module, ModuleManager}
 import org.jetbrains.plugins.scala.SlowTests
-import org.jetbrains.plugins.scala.base.libraryLoaders.{JdkLoader, ScalaLibraryLoader}
+import org.jetbrains.plugins.scala.base.libraryLoaders.{JdkLoader, ScalaSDKLoader}
 import org.jetbrains.plugins.scala.debugger.{ScalaSdkOwner, ScalaVersion, Scala_2_10}
 import org.jetbrains.plugins.scala.util.TestUtils
 import org.junit.experimental.categories.Category
@@ -24,7 +24,7 @@ class IntroduceVariableTest extends AbstractIntroduceVariableTestBase(TestUtils.
 
   override implicit def module: Module = ModuleManager.getInstance(project).getModules()(0)
 
-  override protected def librariesLoaders = Seq(JdkLoader(), ScalaLibraryLoader())
+  override protected def librariesLoaders = Seq(JdkLoader(), ScalaSDKLoader())
 }
 
 object IntroduceVariableTest {

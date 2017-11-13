@@ -1,51 +1,26 @@
-package org.jetbrains.plugins.scala.debugger
+package org.jetbrains.plugins.scala.base.libraryLoaders
 
 import java.io.File
 
-import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.Disposable
+import com.intellij.openapi.module.Module
 import com.intellij.openapi.projectRoots.impl.JavaAwareProjectJdkTableImpl
 import com.intellij.openapi.projectRoots.{JavaSdk, Sdk}
-import com.intellij.openapi.util.registry.Registry
-import org.jetbrains.plugins.scala.base.libraryLoaders.JdkVersion
-import org.jetbrains.plugins.scala.compiler.ScalaCompileServerSettings
-import org.jetbrains.plugins.scala.extensions._
+import com.intellij.openapi.roots.ModuleRootModificationUtil
+import com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess
+import org.jetbrains.plugins.scala.base.libraryLoaders.JdkVersion.JdkVersion
+import org.jetbrains.plugins.scala.debugger.{DebuggerTestUtil, ScalaVersion}
+import org.jetbrains.plugins.scala.extensions.inWriteAction
+import org.junit.Assert
 
-/**
-  * @author Nikolay.Tropin
-  */
-object DebuggerTestUtil {
-  val jdk8Name = JdkVersion.JDK18.toString
-
-  def findJdk8(): Sdk = {
-    val jdkTable = JavaAwareProjectJdkTableImpl.getInstanceEx
-    Option(jdkTable.findJdk(jdk8Name)).getOrElse {
-      val path = discoverJRE18().getOrElse(throw new RuntimeException("Could not find jdk8 installation, " +
-                                            "please define a valid JDK_18_x64 or JDK_18, " +
-                                            s"current - ${sys.env("JDK_18_x64")} or ${sys.env("JDK_18")}"))
-      val jdk = JavaSdk.getInstance.createJdk(jdk8Name, path)
-      inWriteAction {
-        jdkTable.addJdk(jdk)
-      }
-      jdk
-    }
+case class JdkLoader(jdkVersion: JdkVersion = JdkVersion.JDK18) extends LibraryLoader {
+  override def init(implicit module: Module, version: ScalaVersion): Unit = {
+    val jdk = JdkLoader.getOrCreateJDK(jdkVersion, module.getProject)
+    ModuleRootModificationUtil.setModuleSdk(module, jdk)
   }
+}
 
-  def enableCompileServer(enable: Boolean): Unit = {
-    val compileServerSettings = ScalaCompileServerSettings.getInstance()
-    compileServerSettings.COMPILE_SERVER_ENABLED = enable
-    compileServerSettings.COMPILE_SERVER_SHUTDOWN_IDLE = true
-    compileServerSettings.COMPILE_SERVER_SHUTDOWN_DELAY = 30
-    ApplicationManager.getApplication.saveSettings()
-  }
-
-  def forceJdk8ForBuildProcess(): Unit = {
-    val jdk8 = findJdk8()
-    if (jdk8.getHomeDirectory == null) {
-      throw new RuntimeException(s"Failed to set up JDK, got: ${jdk8.toString}")
-    }
-    val jdkHome = jdk8.getHomeDirectory.getParent.getCanonicalPath
-    Registry.get("compiler.process.jdk").setValue(jdkHome)
-  }
+object JdkLoader {
 
   val candidates = Seq(
     "/usr/lib/jvm",                     // linux style
@@ -54,6 +29,21 @@ object DebuggerTestUtil {
     "/Library/Java/JavaVirtualMachines" // mac style
   )
 
+  def getOrCreateJDK(jdkVersion: JdkVersion = JdkVersion.JDK18, parentDisposable: Disposable): Sdk = {
+    val jdkTable = JavaAwareProjectJdkTableImpl.getInstanceEx
+    val jdkName = jdkVersion.toString
+    Option(jdkTable.findJdk(jdkName)).getOrElse {
+      val pathOption = JdkLoader.discoverJDK(jdkName.last.toString)
+      Assert.assertTrue(s"Couldn't find $jdkVersion", pathOption.isDefined)
+      VfsRootAccess.allowRootAccess(pathOption.get)
+      val jdk = JavaSdk.getInstance.createJdk(jdkName, pathOption.get, false)
+      inWriteAction {
+        jdkTable.addJdk(jdk, parentDisposable)
+      }
+      jdk
+    }
+  }
+
   def discoverJRE18(): Option[String] = discoverJre(candidates, "8")
 
   def discoverJRE16(): Option[String] = discoverJre(candidates, "6")
@@ -61,6 +51,8 @@ object DebuggerTestUtil {
   def discoverJDK18(): Option[String] = discoverJRE18().map(new File(_).getParent)
 
   def discoverJDK16(): Option[String] = discoverJRE16().map(new File(_).getParent)
+
+  def discoverJDK(versionMajor: String): Option[String] = discoverJre(candidates, versionMajor).map(new File(_).getParent)
 
   def discoverJre(paths: Seq[String], versionMajor: String): Option[String] = {
     import java.io._
@@ -109,4 +101,9 @@ object DebuggerTestUtil {
       None
     }
   }
+}
+
+object JdkVersion extends Enumeration {
+  type JdkVersion = Value
+  val JDK17, JDK18, JDK19 = Value
 }

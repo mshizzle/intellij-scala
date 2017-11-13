@@ -2,8 +2,6 @@ package org.jetbrains.plugins.scala.memoryLeaks
 
 import java.nio.file.Paths
 
-import scala.collection.JavaConverters._
-
 import com.intellij.codeInspection.ex.{InspectionProfileImpl, InspectionToolWrapper, LocalInspectionToolWrapper}
 import com.intellij.codeInspection.{InspectionManager, InspectionProfile}
 import com.intellij.execution.RunnerAndConfigurationSettings
@@ -22,7 +20,7 @@ import com.intellij.psi.{PsiFile, PsiManager}
 import com.intellij.testFramework.{LeakHunter, PlatformTestCase}
 import com.intellij.util.ui.UIUtil
 import org.jetbrains.plugins.scala.annotator.{AnnotatorHolderMock, ScalaAnnotator}
-import org.jetbrains.plugins.scala.base.libraryLoaders.{JdkLoader, LibraryLoader, ScalaLibraryLoader}
+import org.jetbrains.plugins.scala.base.libraryLoaders.{JdkLoader, LibraryLoader, ScalaSDKLoader}
 import org.jetbrains.plugins.scala.debugger.Scala_2_10
 import org.jetbrains.plugins.scala.lang.psi.api.ScalaFile
 import org.jetbrains.plugins.scala.lang.psi.api.statements.ScFunctionDefinition
@@ -32,6 +30,8 @@ import org.jetbrains.plugins.scala.util.TestUtils.getTestDataPath
 import org.jetbrains.plugins.scala.{ScalaLanguage, SlowTests}
 import org.junit.Assert._
 import org.junit.experimental.categories.Category
+
+import scala.collection.JavaConverters._
 
 /**
   * @author Nikolay.Tropin
@@ -79,7 +79,7 @@ class MemoryLeakTest extends PlatformTestCase {
 
   private def librariesLoaders(implicit project: ProjectContext): Seq[LibraryLoader] = {
     Seq(
-      ScalaLibraryLoader(),
+      ScalaSDKLoader(),
       JdkLoader()
     )
   }
