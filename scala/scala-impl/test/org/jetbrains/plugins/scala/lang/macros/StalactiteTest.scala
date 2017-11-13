@@ -1,17 +1,15 @@
 package org.jetbrains.plugins.scala.lang.macros
 
-import com.intellij.openapi.module.Module
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.psi.util.PsiTreeUtil
-import org.jetbrains.plugins.scala.SlowTests
 import org.jetbrains.plugins.scala.base.ScalaLightCodeInsightFixtureTestAdapter
-import org.jetbrains.plugins.scala.base.libraryLoaders.IvyLibraryLoaderAdapter
 import org.jetbrains.plugins.scala.debugger.{ScalaVersion, Scala_2_11}
 import org.jetbrains.plugins.scala.lang.psi.api.statements.ScFunctionDefinition
 import org.jetbrains.plugins.scala.lang.psi.api.toplevel.typedef._
 import org.jetbrains.plugins.scala.lang.psi.types.PhysicalSignature
 import org.jetbrains.plugins.scala.lang.psi.types.result._
 import org.jetbrains.plugins.scala.util.TestUtils
+import org.jetbrains.plugins.scala.{DependencyManager, SlowTests}
 import org.junit.Assert._
 import org.junit.experimental.categories.Category
 
@@ -23,14 +21,14 @@ import org.junit.experimental.categories.Category
  */
 @Category(Array(classOf[SlowTests]))
 class StalactiteTest extends ScalaLightCodeInsightFixtureTestAdapter {
+  import DependencyManager._
 
   override implicit val version: ScalaVersion = Scala_2_11
 
-  override def librariesLoaders =
-    super.librariesLoaders :+
-      StalactiteTest.StalactiteLoader() :+
-      StalactiteTest.SimulacrumLoader()
-
+  override protected def loadIvyDependencies(): Unit = DependencyManager(
+    "com.fommil" %% "stalactite" % "0.0.3",
+    "com.github.mpilquist" %% "simulacrum" % "0.10.0"
+  ).loadAll
 
   protected def folderPath: String = TestUtils.getTestDataPath
 
@@ -124,19 +122,4 @@ case object <caret>Caz
     doTest(fileText, "Wibble[Caz.type]")
   }
 
-}
-
-object StalactiteTest {
-
-  case class StalactiteLoader() extends IvyLibraryLoaderAdapter {
-    val vendor: String = "com.fommil"
-    val name: String = "stalactite"
-    val version: String = "0.0.3"
-  }
-
-  case class SimulacrumLoader() extends IvyLibraryLoaderAdapter {
-    val vendor: String = "com.github.mpilquist"
-    val name: String = "simulacrum"
-    val version: String = "0.10.0"
-  }
 }

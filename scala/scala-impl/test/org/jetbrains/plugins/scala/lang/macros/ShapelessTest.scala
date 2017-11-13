@@ -1,6 +1,5 @@
 package org.jetbrains.plugins.scala.lang.macros
 
-import com.intellij.openapi.module.Module
 import org.jetbrains.plugins.scala.DependencyManager
 import org.jetbrains.plugins.scala.DependencyManager._
 import org.jetbrains.plugins.scala.debugger.{ScalaVersion, Scala_2_11}
@@ -8,7 +7,6 @@ import org.jetbrains.plugins.scala.lang.typeInference.TypeInferenceTestBase
 
 class ShapelessTest extends TypeInferenceTestBase {
 
-  implicit private def moduleContext: Module = module()
   override implicit val version: ScalaVersion = Scala_2_11
 
   override protected def loadIvyDependencies(): Unit =

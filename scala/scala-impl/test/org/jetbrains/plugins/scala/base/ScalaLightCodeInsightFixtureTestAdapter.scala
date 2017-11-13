@@ -3,6 +3,7 @@ package base
 
 import com.intellij.codeInsight.folding.CodeFoldingManager
 import com.intellij.openapi.application.WriteAction
+import com.intellij.openapi.module.Module
 import com.intellij.openapi.project.Project
 import com.intellij.testFramework.LightProjectDescriptor
 import com.intellij.testFramework.fixtures.CodeInsightTestFixture.CARET_MARKER
