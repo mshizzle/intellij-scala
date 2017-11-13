@@ -4,6 +4,7 @@ import java.io.File
 
 import com.intellij.openapi.module.Module
 import com.intellij.openapi.projectRoots.{ProjectJdkTable, Sdk}
+import com.intellij.openapi.roots.ModuleRootModificationUtil
 import com.intellij.openapi.roots.libraries.Library
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.{JarFileSystem, VirtualFile}
@@ -17,6 +18,8 @@ import org.jetbrains.plugins.scala.project.{LibraryExt, ModuleExt, ScalaLanguage
 import org.jetbrains.plugins.scala.util.TestUtils
 
 import scala.collection.JavaConverters._
+import org.jetbrains.plugins.scala.DependencyManager._
+import org.jetbrains.plugins.scala.DependencyManager
 
 case class ScalaLibraryLoader(isIncludeReflectLibrary: Boolean = false)
   extends LibraryLoader {
@@ -55,6 +58,45 @@ case class ScalaLibraryLoader(isIncludeReflectLibrary: Boolean = false)
 
       module.attach(library)
     }
+  }
+
+  private def languageLevel(compiler: File) =
+    versionOf(compiler)
+      .flatMap(_.toLanguageLevel)
+      .getOrElse(ScalaLanguageLevel.Default)
+}
+
+case class ScalaSDKLoader(includeScalaReflect: Boolean = false, jdk: Option[Sdk] = None) extends LibraryLoader {
+  override def init(implicit module: Module, version: ScalaVersion): Unit = {
+
+    def toVFile(dep: ResolvedDependency): VirtualFile =
+      JarFileSystem.getInstance().refreshAndFindFileByPath(s"${dep.file.getCanonicalPath}!/")
+
+    val deps = Seq(
+      "org.scala-lang" % "scala-compiler" % version.minor,
+      "org.scala-lang" % "scala-library" % version.minor,
+      "org.scala-lang" % "scala-reflect" % version.minor
+
+    )
+
+    val resolved = deps.flatMap(new DependencyManager().resolve(_))
+      .filterNot(!includeScalaReflect && _.info.artId.contains("reflect"))
+
+    val srcsResolved = new DependencyManager()
+      .resolve("org.scala-lang" % "scala-library" % version.minor % Types.SRC)
+
+    val library = PsiTestUtil.addProjectLibrary(module, "scala-sdk", resolved.map(toVFile).asJava, srcsResolved.map(toVFile).asJava)
+
+    Disposer.register(module, library)
+
+    inWriteAction {
+      library.convertToScalaSdkWith(languageLevel(resolved.head.file), resolved.map(_.file))
+      module.attach(library)
+    }
+
+    jdk.foreach { ModuleRootModificationUtil.setModuleSdk(module, _) }
+
+    ScalaLoader.loadScala()
   }
 
   private def languageLevel(compiler: File) =

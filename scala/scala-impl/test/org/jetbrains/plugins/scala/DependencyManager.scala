@@ -39,7 +39,7 @@ class DependencyManager(val deps: Dependency*) {
 
   private def mkIvyXml(dep: Dependency): String = {
     s"""
-      |<ivy-module version="2.0">
+      |<ivy-module version="2.0" xmlns:e="http://ant.apache.org/ivy/extra">
       |<info organisation="org.jetbrains.plugins.scala" module="ij-scala-tests"/>
       | <configurations>
       |   <conf name="default"/>
@@ -48,7 +48,7 @@ class DependencyManager(val deps: Dependency*) {
       | </configurations>
       |  <dependencies>
       |    <dependency org="${dep.org}" name="${dep.artId}" rev="${dep.version}" conf="${dep.conf}">
-      |      <artifact name="${dep.artId}" type="${dep.kind}"/>
+      |      <artifact name="${dep.artId}" type="${dep.kind}" ext="jar" ${dep.classifier} />
       |    </dependency>
       |  </dependencies>
       |</ivy-module>
@@ -81,7 +81,7 @@ class DependencyManager(val deps: Dependency*) {
       if (d._transitive) {
         report
           .getAllArtifactsReports
-          .filter(r => !artifactBlackList.contains(r.getName.replaceAll("_\\d+\\.\\d+$", "")))
+          .filter(r => !artifactBlackList.contains(stripScalaVersion(r.getName)))
           .map(a => ResolvedDependency(d, a.getLocalFile))
       } else {
         val foundArtifact = report.getAllArtifactsReports.find(_.getName == d.artId)
@@ -92,8 +92,10 @@ class DependencyManager(val deps: Dependency*) {
   }
 
 
+
   private def resolveFast(dep: Dependency): Option[ResolvedDependency] = {
-    val file = new File(ivyHome, s"cache/${dep.org}/${dep.artId}/${dep.kind}s/${dep.artId}-${dep.version}.jar")
+    val suffix = if (dep.classifier.nonEmpty) s"-${dep.classifier}" else ""
+    val file = new File(ivyHome, s"cache/${dep.org}/${dep.artId}/${dep.kind}s/${dep.artId}-${dep.version}$suffix.jar")
     if (file.exists())
       Some(ResolvedDependency(dep, file))
     else
@@ -135,11 +137,13 @@ object DependencyManager {
 
   val artifactBlackList = Set("scala-library", "scala-reflect", "scala-compiler")
 
+  private def stripScalaVersion(str: String): String = str.replaceAll("_\\d+\\.\\d+$", "")
+
   def apply(deps: Dependency*): DependencyManager = new DependencyManager(deps:_*)
 
   object Types extends Enumeration {
     type Type = Value
-    val JAR, BUNDLE, SOURCE = Value
+    val JAR, BUNDLE, SRC = Value
   }
 
   case class Dependency(org: String,
@@ -154,6 +158,7 @@ object DependencyManager {
     def ^(conf: String): Dependency = copy(conf = conf)
     def %(kind: Types.Type): Dependency = copy(_kind = kind)
     def transitive(): Dependency = copy(_transitive = true)
+    def classifier: String = if (_kind == Types.SRC) "e:classifier=\"sources\"" else ""
   }
 
   case class ResolvedDependency(info: Dependency, file: File)
