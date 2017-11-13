@@ -1,14 +1,12 @@
 package scala.meta.quasiquotes
 
-import org.jetbrains.plugins.scala.base.libraryLoaders.ThirdPartyLibraryLoader
 import org.jetbrains.plugins.scala.lang.typeInference.TypeInferenceTestBase
 
-import scala.meta.ScalaMetaLibrariesOwner
+import scala.meta.ScalaMetaTestBase
 
-abstract class QuasiQuoteTypeInferenceTestBase extends TypeInferenceTestBase with ScalaMetaLibrariesOwner {
+abstract class QuasiQuoteTypeInferenceTestBase extends TypeInferenceTestBase with ScalaMetaTestBase {
 
-  override protected def additionalLibraries(): Seq[ThirdPartyLibraryLoader] =
-    super[ScalaMetaLibrariesOwner].additionalLibraries()
+  override def loadIvyDependencies(): Unit = dependencyManager.loadAll
 
   override protected def doTest(fileText: String): Unit =
     super.doTest(

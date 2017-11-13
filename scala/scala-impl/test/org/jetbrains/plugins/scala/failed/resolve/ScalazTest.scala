@@ -12,7 +12,7 @@ import org.junit.experimental.categories.Category
 class ScalazTest extends FailedResolveTest("scalaz") {
 
   override protected def loadIvyDependencies(): Unit =
-    DependencyManager("org.scalaz" %% "scalaz-core" % "7.1.0").loadAll
+    DependencyManager("org.scalaz" % "scalaz-core_2.11" % "7.1.0").loadAll
 
   def testSCL7213(): Unit = doTest()
 

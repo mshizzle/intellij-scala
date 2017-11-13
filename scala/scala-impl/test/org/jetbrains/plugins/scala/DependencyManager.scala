@@ -32,13 +32,11 @@ class DependencyManager(val deps: Dependency*) {
   private val homePrefix = sys.props.get("tc.idea.prefix").orElse(sys.props.get("user.home")).map(new File(_)).get
   private val ivyHome = sys.props.get("sbt.ivy.home").map(new File(_)).orElse(Option(new File(homePrefix, ".ivy2"))).get
 
-  private val resolvers = Seq(
+  private var resolvers = Seq(
     Resolver("central", "http://repo1.maven.org/maven2/[organisation]/[module]/[revision]/[artifact](-[revision]).jar"),
     Resolver("scalaz-releases", "http://dl.bintray.com/scalaz/releases/[organisation]/[module]/[revision]/[artifact](-[revision]).jar")
   )
-  //http://dl.bintray.com/scalaz/releases/org/scalaz/stream/scalaz-stream_2.11/0.6a/scalaz-stream_2.11-0.6a.jar
-//https://repo1.maven.org/maven2/org/specs2/specs2_2.10/2.4.6/specs2_2.10-2.4.6.jar
-  //http://dl.bintray.com/scalaz/releases/org/scalaz/stream/scalaz-stream_2.11/0.5a/scalaz-stream_2.11-0.5a.jar
+
   private def mkIvyXml(dep: Dependency): String = {
     s"""
       |<ivy-module version="2.0">
@@ -57,8 +55,8 @@ class DependencyManager(val deps: Dependency*) {
     """.stripMargin
   }
 
-  def resolveIvy(d: Dependency): Option[ResolvedDependency] = {
-    def mkresolver(r: Resolver): URLResolver = {
+  private def resolveIvy(d: Dependency): Seq[ResolvedDependency] = {
+    def mkResolver(r: Resolver): URLResolver = {
       val resolver: URLResolver = new URLResolver
       resolver.setM2compatible(true)
       resolver.setName(r.name)
@@ -68,9 +66,7 @@ class DependencyManager(val deps: Dependency*) {
     val ivySettings: IvySettings = new IvySettings
     val chres = new ChainResolver
     chres.setName("default")
-    resolvers.foreach { r =>
-      chres.add(mkresolver(r))
-    }
+    resolvers.foreach { r => chres.add(mkResolver(r)) }
     ivySettings.addResolver(chres)
     ivySettings.setDefaultResolver("default")
     ivySettings.setDefaultIvyUserDir(ivyHome)
@@ -82,10 +78,17 @@ class DependencyManager(val deps: Dependency*) {
     val report = ivy.resolve(ivyFile.toURI.toURL, resolveOptions)
     ivyFile.delete()
     if (report.getAllProblemMessages.isEmpty && report.getAllArtifactsReports.length > 0) {
-      val foundArtifact = report.getAllArtifactsReports.find(_.getName == d.artId)
-      foundArtifact.flatMap(a => Some(ResolvedDependency(d, a.getLocalFile)))
+      if (d._transitive) {
+        report
+          .getAllArtifactsReports
+          .filter(r => !artifactBlackList.contains(r.getName.replaceAll("_\\d+\\.\\d+$", "")))
+          .map(a => ResolvedDependency(d, a.getLocalFile))
+      } else {
+        val foundArtifact = report.getAllArtifactsReports.find(_.getName == d.artId)
+        foundArtifact.map(a=>ResolvedDependency(d, a.getLocalFile)).toList
+      }
     }
-    else None
+    else Seq.empty
   }
 
 
@@ -97,24 +100,40 @@ class DependencyManager(val deps: Dependency*) {
       None
   }
 
-  private def resolve(dependency: Dependency): Option[ResolvedDependency] = {
-    resolveFast(dependency).orElse(resolveIvy(dependency))
+  def resolve(dependency: Dependency): Seq[ResolvedDependency] = {
+    if (dependency._transitive)  // TODO: parse dependency metadata to lookup local transitive dependencies
+      resolveIvy(dependency)
+    else
+      resolveFast(dependency) match {
+        case Some(resolved) => Seq(resolved)
+        case None           => resolveIvy(dependency)
+      }
   }
 
   def load(deps: Dependency*)(implicit module: Module): Unit = {
     deps.foreach { d =>
       resolve(d) match {
-        case Some(ResolvedDependency(_, file)) =>
-          VfsRootAccess.allowRootAccess(file.getCanonicalPath)
-          PsiTestUtil.addLibrary(module, file.getName, file.getParent, file.getName)
-        case None => println(s"failed ro resolve dependency: $d")
+        case resolved if resolved.nonEmpty =>
+          resolved.foreach { res =>
+            VfsRootAccess.allowRootAccess(res.file.getCanonicalPath)
+            PsiTestUtil.addLibrary(module, res.file.getName, res.file.getParent, res.file.getName)
+          }
+        case _ => println(s"failed ro resolve dependency: $d")
       }
     }
   }
+
   def loadAll(implicit module: Module): Unit = load(deps:_*)(module)
+
+  def withResolvers(_resolvers: Seq[Resolver]): DependencyManager = {
+    resolvers = resolvers ++ _resolvers
+    this
+  }
 }
 
 object DependencyManager {
+
+  val artifactBlackList = Set("scala-library", "scala-reflect", "scala-compiler")
 
   def apply(deps: Dependency*): DependencyManager = new DependencyManager(deps:_*)
 
@@ -127,12 +146,14 @@ object DependencyManager {
                         artId: String,
                         version: String,
                         conf: String = "compile->default(compile)",
-                        _kind: Types.Type = Types.JAR)
+                        _kind: Types.Type = Types.JAR,
+                        _transitive: Boolean = false)
   {
     def kind: String = _kind.toString.toLowerCase
     def %(version: String): Dependency = copy(version = version)
     def ^(conf: String): Dependency = copy(conf = conf)
     def %(kind: Types.Type): Dependency = copy(_kind = kind)
+    def transitive(): Dependency = copy(_transitive = true)
   }
 
   case class ResolvedDependency(info: Dependency, file: File)

@@ -1,15 +1,11 @@
 package scala.meta.annotations
 
-import scala.meta.{ScalaMetaLibrariesOwner, _}
-
 import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.editor.markup.GutterIconRenderer
 import com.intellij.openapi.module.Module
 import com.intellij.openapi.projectRoots.ProjectJdkTable
 import com.intellij.testFramework.fixtures.JavaCodeInsightFixtureTestCase
 import com.intellij.testFramework.{PsiTestUtil, TestActionEvent}
-import org.jetbrains.plugins.scala.base.libraryLoaders.{JdkLoader, ScalaLibraryLoader}
-import org.jetbrains.plugins.scala.debugger.DebuggerTestUtil.findJdk8
 import org.jetbrains.plugins.scala.extensions.inWriteAction
 import org.jetbrains.plugins.scala.lang.psi.api.toplevel.typedef.ScClass
 import org.jetbrains.plugins.scala.util.TestUtils
@@ -17,29 +13,26 @@ import org.jetbrains.plugins.scala.{ScalaBundle, SlowTests}
 import org.junit.Assert._
 import org.junit.experimental.categories.Category
 
+import scala.meta.intellij.MetaExpansionsManager.PARADISE_VERSION
+import scala.meta.{ScalaMetaTestBase, _}
+
 /**
   * @author mutcianm
   * @since 14.03.17.
   */
 
 @Category(Array(classOf[SlowTests]))
-class MetaAnnotationJarTest extends JavaCodeInsightFixtureTestCase with ScalaMetaLibrariesOwner {
+class MetaAnnotationJarTest extends JavaCodeInsightFixtureTestCase with ScalaMetaTestBase {
   override protected def getTestDataPath: String = TestUtils.getTestDataPath + "/scalameta"
 
-  override protected def librariesLoaders = Seq(
-    JdkLoader(findJdk8()),
-    ScalaLibraryLoader(isIncludeReflectLibrary = true)
-  ) ++ additionalLibraries
-
-  protected lazy val testJarPath = s"/addFoo_${version.major}_$paradiseVersion.jar"
+  protected lazy val testJarPath = s"/addFoo_${version.major}_$PARADISE_VERSION.jar"
 
   override implicit protected def module: Module = myModule
-
-  private val paradiseVersion = "3.0.0-M10"
 
   override def setUp(): Unit = {
     super.setUp()
     setUpLibraries()
+    dependencyManager.loadAll
     PsiTestUtil.addLibrary(myModule, getTestDataPath + testJarPath)
   }
 
@@ -68,7 +61,6 @@ class MetaAnnotationJarTest extends JavaCodeInsightFixtureTestCase with ScalaMet
       case Right(other) => fail(s"Got unexpected expansion: $other")
       case Left(error)  => fail(s"Failed to expand meta annotation: $error")
     }
-    myFixture.findAllGutters().get(0).asInstanceOf[GutterIconRenderer].getClickAction.actionPerformed(new TestActionEvent())
   }
 
   def testGutterClickExpansion(): Unit = {

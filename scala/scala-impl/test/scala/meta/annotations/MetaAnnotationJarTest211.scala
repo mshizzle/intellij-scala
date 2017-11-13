@@ -9,6 +9,6 @@ import org.junit.experimental.categories.Category
   * @since 26.03.17.
   */
 @Category(Array(classOf[SlowTests]))
-class MetaAnnotationJarTest211 extends MetaAnnotationJarTest {
+class MetaAnnotationJarTest211 extends {
   override implicit val version: ScalaVersion = Scala_2_11
-}
+} with MetaAnnotationJarTest
