@@ -91,7 +91,7 @@ abstract class ScalaCompilerTestBase extends ModuleTestCase with ScalaSdkOwner {
 
   protected def additionalLibraries: Seq[LibraryLoader] = Seq.empty
 
-  override protected def getTestProjectJdk: Sdk = JdkLoader.getOrCreateJDK(parentDisposable = project)
+  override protected def getTestProjectJdk: Sdk = JdkLoader.getOrCreateJDK()
 
   protected def forceFSRescan(): Unit = BuildManager.getInstance.clearState(myProject)
 

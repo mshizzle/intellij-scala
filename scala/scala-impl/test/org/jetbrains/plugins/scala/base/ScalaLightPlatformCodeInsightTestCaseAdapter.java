@@ -47,7 +47,7 @@ public abstract class ScalaLightPlatformCodeInsightTestCaseAdapter extends Light
 
     @Override
     protected Sdk getProjectJDK() {
-        return TestUtils.createJdk();
+        return JdkLoader$.MODULE$.getOrCreateJDK(JdkVersion$.MODULE$.JDK18());
     }
 
     @Override
