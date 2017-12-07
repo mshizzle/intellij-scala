@@ -5,112 +5,119 @@ import java.util.concurrent.ConcurrentMap
 import com.intellij.debugger.engine.SyntheticTypeComponentProvider
 import com.intellij.util.containers.ContainerUtil
 import com.sun.jdi._
-import org.jetbrains.plugins.scala.debugger.evaluation.util.DebuggerUtil
+import org.jetbrains.plugins.scala.debugger.evaluation.util.DebuggerUtil.isScala
 import org.jetbrains.plugins.scala.decompiler.DecompilerUtil
 
+import scala.collection.JavaConverters
 import scala.util.Try
-import scala.collection.JavaConverters._
 
 /**
- * Nikolay.Tropin
- * 2014-12-03
- */
+  * Nikolay.Tropin
+  * 2014-12-03
+  */
 class ScalaSyntheticProvider extends SyntheticTypeComponentProvider {
-  override def isSynthetic(typeComponent: TypeComponent): Boolean = ScalaSyntheticProvider.isSynthetic(typeComponent)
+
+  override final def isSynthetic(typeComponent: TypeComponent): Boolean = typeComponent match {
+    case null => true
+    case _ =>
+      import ScalaSyntheticProvider._
+      cache.get(typeComponent) match {
+        case null =>
+          typeComponent.declaringType() match {
+            case referenceType if isScala(referenceType, default = false) =>
+              cache.putIfAbsent(typeComponent, isSyntheticImpl(typeComponent, referenceType))
+            case _ => false
+          }
+        case cached => cached
+      }
+  }
 }
 
 object ScalaSyntheticProvider {
   private val cache: ConcurrentMap[TypeComponent, java.lang.Boolean] = ContainerUtil.createConcurrentWeakMap()
 
-  def isSynthetic(typeComponent: TypeComponent): Boolean = {
-    if (typeComponent == null) return true
-
-    val fromCache = cache.get(typeComponent)
-    if (fromCache != null) return fromCache
-
-    val isScala = DebuggerUtil.isScala(typeComponent.declaringType(), default = false)
-    if (!isScala) return false
-
-    val result = typeComponent match {
-      case _ if hasSpecialization(typeComponent) && !isMacroDefined(typeComponent) => true
-      case m: Method if m.isConstructor && ScalaPositionManager.isAnonfunType(m.declaringType()) => true
-      case m: Method if isDefaultArg(m) => true
-      case m: Method if isTraitForwarder(m) => true
-      case m: Method if m.name().endsWith("$adapted") => true
-      case m: Method if ScalaPositionManager.isIndyLambda(m) => false
-      case m: Method if isAccessorInDelayedInit(m) => true
-      case f: Field if f.name().startsWith("bitmap$") => true
-      case _ =>
-        val machine: VirtualMachine = typeComponent.virtualMachine
-        machine != null && machine.canGetSyntheticAttribute && typeComponent.isSynthetic
-    }
-    cache.putIfAbsent(typeComponent, result)
-    result
+  private def isSyntheticImpl: (TypeComponent, ReferenceType) => Boolean = {
+    case (typeComponent, referenceType) if hasSpecialization(typeComponent, referenceType) && !isMacroDefined(typeComponent, referenceType) => true
+    case (m: Method, referenceType) if m.isConstructor && ScalaPositionManager.isAnonfunType(referenceType) => true
+    case (method: Method, referenceType) if isDefaultArg(method, referenceType) => true
+    case (method: Method, referenceType) if isTraitForwarder(method, referenceType) => true
+    case (method: Method, _) if method.name().endsWith("$adapted") => true
+    case (m: Method, _) if ScalaPositionManager.isIndyLambda(m) => false
+    case (method: Method, classType: ClassType) if isAccessorInDelayedInit(method, classType) => true
+    case (field: Field, _) if field.name().startsWith("bitmap$") => true
+    case (typeComponent, _) =>
+      Option(typeComponent.virtualMachine).exists(_.canGetSyntheticAttribute) && typeComponent.isSynthetic
   }
 
   def unspecializedName(s: String): Option[String] = """.*(?=\$mc\w+\$sp)""".r.findFirstIn(s)
 
-  def hasSpecialization(tc: TypeComponent, refType: Option[ReferenceType] = None): Boolean = {
-    val referenceType = refType.getOrElse(tc.declaringType())
-    val name = tc.name()
-    def checkName(cand: TypeComponent) = unspecializedName(cand.name()).contains(name)
-    def checkSignature(cand: TypeComponent) = tc.signature() == cand.signature()
-
-    tc match {
-      case _: Method => referenceType.methods().asScala.exists(c => checkName(c) && checkSignature(c))
-      case _: Field => referenceType.allFields().asScala.exists(checkName)
-      case _ => false
+  def hasSpecialization(typeComponent: TypeComponent, referenceType: ReferenceType): Boolean = {
+    import JavaConverters._
+    val members = typeComponent match {
+      case _: Method =>
+        val signature = typeComponent.signature()
+        referenceType.methods().asScala.filter(_.signature() == signature)
+      case _: Field => referenceType.allFields().asScala
+      case _ => Seq.empty
     }
+
+    val name = typeComponent.name()
+    members.map(_.name())
+      .flatMap(unspecializedName)
+      .contains(name)
   }
 
   def isSpecialization(tc: TypeComponent): Boolean = unspecializedName(tc.name()).nonEmpty
 
   private val defaultArgPattern = """\$default\$\d+""".r
 
-  private def isDefaultArg(m: Method): Boolean = {
-    val methodName = m.name()
-    if (!methodName.contains("$default$")) false
-    else {
+  private def isDefaultArg(method: Method, referenceType: ReferenceType): Boolean = method.name() match {
+    case methodName if methodName.contains("$default$") =>
       val lastDefault = defaultArgPattern.findAllMatchIn(methodName).toSeq.lastOption
       lastDefault.map(_.matched) match {
         case Some(s) if methodName.endsWith(s) =>
           val origMethodName = methodName.stripSuffix(s)
-          val refType = m.declaringType
-          !refType.methodsByName(origMethodName).isEmpty
+          !referenceType.methodsByName(origMethodName).isEmpty
         case _ => false
       }
-    }
+    case _ => false
   }
 
-  private def isTraitForwarder(m: Method): Boolean = {
+  private def isTraitForwarder(method: Method, referenceType: ReferenceType): Boolean = {
     //trait forwarders are usually generated with line number of the containing class
     def looksLikeForwarderLocation: Boolean = {
-      val line = m.location().lineNumber()
+      val line = method.location().lineNumber()
       if (line < 0) return false
 
-      val methods = m.declaringType().methods()
-      val lines =
-        methods
-          .asScala
-          .flatMap(m => Option(m.location()))
-          .map(_.lineNumber())
-          .filter(_ >= 0)
+      import JavaConverters._
+      val lines = referenceType.methods().asScala
+        .flatMap(m => Option(m.location()))
+        .map(_.lineNumber())
+        .filter(_ >= 0)
 
       lines.nonEmpty && line <= lines.min
     }
 
-    Try(onlyInvokesStatic(m) && hasTraitWithImplementation(m) && looksLikeForwarderLocation).getOrElse(false)
+    def hasTraitWithImplementation = referenceType match {
+      case interfaceType: InterfaceType => this.hasTraitWithImplementation(method, interfaceType)
+      case classType: ClassType => this.hasTraitWithImplementation(method, classType)
+      case _ => false
+    }
+
+    Try(onlyInvokesStatic(method) && hasTraitWithImplementation && looksLikeForwarderLocation).getOrElse(false)
   }
 
-  def isMacroDefined(typeComponent: TypeComponent): Boolean = {
-    val typeName = typeComponent.declaringType().name()
+  def isMacroDefined(typeComponent: TypeComponent, referenceType: ReferenceType): Boolean = {
+    val typeName = referenceType.name()
     typeName.contains("$macro") || typeName.contains("$stateMachine$")
   }
 
   private def onlyInvokesStatic(m: Method): Boolean = {
     val bytecodes: Array[Byte] =
       try m.bytecodes()
-      catch {case _: Throwable => return false}
+      catch {
+        case _: Throwable => return false
+      }
 
     var i = 0
     while (i < bytecodes.length) {
@@ -127,43 +134,41 @@ object ScalaSyntheticProvider {
     false
   }
 
-  private def hasTraitWithImplementation(m: Method): Boolean = {
-    m.declaringType() match {
-      case it: InterfaceType =>
-        val implMethods = it.methodsByName(m.name + "$")
-        if (implMethods.isEmpty) false
-        else {
-          val typeNames = m.argumentTypeNames()
-          val argCount = typeNames.size
-          implMethods.asScala.exists { impl =>
-            val implTypeNames = impl.argumentTypeNames()
-            val implArgCount = implTypeNames.size
-            implArgCount == argCount + 1 && implTypeNames.asScala.tail == typeNames ||
-              implArgCount == argCount && implTypeNames == typeNames
-          }
+  import JavaConverters._
+
+  private[this] def hasTraitWithImplementation(method: Method, interfaceType: InterfaceType): Boolean =
+    interfaceType.methodsByName(method.name + "$").asScala match {
+      case Seq() => false
+      case methods =>
+        val typeNames = method.argumentTypeNames()
+        val argCount = typeNames.size
+        methods.exists { impl =>
+          val implTypeNames = impl.argumentTypeNames()
+          val implArgCount = implTypeNames.size
+          implArgCount == argCount + 1 && implTypeNames.asScala.tail == typeNames ||
+            implArgCount == argCount && implTypeNames == typeNames
         }
-      case ct: ClassType =>
-        val interfaces = ct.allInterfaces().asScala
-        val vm = ct.virtualMachine()
-        val allTraitImpls = vm.allClasses().asScala.filter(_.name().endsWith("$class"))
-        for {
-          interface <- interfaces
-          traitImpl <- allTraitImpls
-          if traitImpl.name().stripSuffix("$class") == interface.name() && !traitImpl.methodsByName(m.name).isEmpty
-        } {
-          return true
-        }
-        false
-      case _ => false
     }
+
+  private[this] def hasTraitWithImplementation(method: Method, classType: ClassType): Boolean = {
+    val interfaces = classType.allInterfaces().asScala
+    val vm = classType.virtualMachine()
+    val allTraitImpls = vm.allClasses().asScala.filter(_.name().endsWith("$class"))
+    for {
+      interface <- interfaces
+      traitImpl <- allTraitImpls
+      if traitImpl.name().stripSuffix("$class") == interface.name() && !traitImpl.methodsByName(method.name).isEmpty
+    } {
+      return true
+    }
+    false
   }
 
-  private def isAccessorInDelayedInit(m: Method): Boolean = {
-    val simpleName = m.name.stripSuffix("_$eq")
-    m.declaringType() match {
-      case ct: ClassType if ct.fieldByName(simpleName) != null =>
-        ct.allInterfaces().asScala.exists(_.name() == "scala.DelayedInit")
-      case _ => false
-    }
+  private[this] def isAccessorInDelayedInit(method: Method, classType: ClassType): Boolean = {
+    val simpleName = method.name.stripSuffix("_$eq")
+    classType.fieldByName(simpleName) != null &&
+      classType.allInterfaces().asScala
+        .map(_.name())
+        .contains("scala.DelayedInit")
   }
 }

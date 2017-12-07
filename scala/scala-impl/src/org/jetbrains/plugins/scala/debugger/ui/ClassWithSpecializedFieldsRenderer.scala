@@ -22,6 +22,6 @@ class ClassWithSpecializedFieldsRenderer extends ClassRenderer {
 
   override def shouldDisplay(context: EvaluationContext, objInstance: ObjectReference, field: Field): Boolean = {
     super.shouldDisplay(context, objInstance, field) &&
-      !hasSpecialization(field, Some(objInstance.referenceType()))
+      !hasSpecialization(field, objInstance.referenceType())
   }
 }

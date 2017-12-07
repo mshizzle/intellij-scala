@@ -32,7 +32,7 @@ import org.jetbrains.plugins.scala.lang.resolve.{ScalaResolveResult, StdKinds}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 /**
   * Nikolay.Tropin
@@ -47,15 +47,16 @@ class ScalaFrameExtraVariablesProvider extends FrameExtraVariablesProvider {
   override def collectVariables(sourcePosition: SourcePosition,
                                 evaluationContext: EvaluationContext,
                                 alreadyCollected: util.Set[String]): util.Set[TextWithImports] = {
+    val maybeElement = Try(evaluationContext.getFrameProxy.location().method()) match {
+      case Success(method) if DebuggerUtils.isSynthetic(method) || ScalaSyntheticProvider.isMacroDefined(method, method.declaringType()) => None
+      case Failure(_) => None
+      case _ => Option(inReadAction(sourcePosition.getElementAt))
+    }
 
-    val method = Try(evaluationContext.getFrameProxy.location().method()).toOption
-    if (method.isEmpty || DebuggerUtils.isSynthetic(method.get) || ScalaSyntheticProvider.isMacroDefined(method.get))
-      return Collections.emptySet()
-
-    val element = inReadAction(sourcePosition.getElementAt)
-
-    if (element == null) Collections.emptySet()
-    else getVisibleVariables(element, evaluationContext, alreadyCollected).map(toTextWithImports).asJava
+    maybeElement match {
+      case Some(element) => getVisibleVariables(element, evaluationContext, alreadyCollected).map(toTextWithImports).asJava
+      case _ => Collections.emptySet()
+    }
   }
 
   private def getVisibleVariables(elem: PsiElement, evaluationContext: EvaluationContext, alreadyCollected: util.Set[String]) = {
