@@ -39,11 +39,12 @@ import org.jetbrains.plugins.scala.lang.psi.types.result._
 import org.jetbrains.plugins.scala.lang.refactoring.util.ScalaNamesUtil
 import org.jetbrains.plugins.scala.macroAnnotations.{Cached, CachedInsidePsiElement, ModCount}
 import org.jetbrains.plugins.scala.project.UserDataHolderExt
-
 import scala.annotation.tailrec
 import scala.collection.Seq
 import scala.collection.immutable.Set
 import scala.collection.mutable.ArrayBuffer
+
+import com.intellij.psi.impl.PsiSuperMethodImplUtil
 
 /**
  * @author Alexander Podkhalyuzin
@@ -529,9 +530,8 @@ trait ScFunction extends ScalaPsiElement with ScMember with ScTypeParametersOwne
 
   def hasAssign: Boolean = getNode.getChildren(TokenSet.create(ScalaTokenTypes.tASSIGN)).nonEmpty
 
-  def getHierarchicalMethodSignature: HierarchicalMethodSignature = {
-    new HierarchicalMethodSignatureImpl(getSignature(PsiSubstitutor.EMPTY))
-  }
+  def getHierarchicalMethodSignature: HierarchicalMethodSignature =
+    PsiSuperMethodImplUtil.getHierarchicalMethodSignature(this)
 
   override def getName: String = {
     if (isConstructor) Option(getContainingClass).map(_.getName).getOrElse(super.getName)
